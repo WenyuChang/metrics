@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import javax.net.SocketFactory;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -20,7 +21,7 @@ public class Graphite implements GraphiteSender {
 
     private final String hostname;
     private final int port;
-    private final InetSocketAddress address;
+    private InetSocketAddress address;
     private final SocketFactory socketFactory;
     private final Charset charset;
 
@@ -110,17 +111,22 @@ public class Graphite implements GraphiteSender {
         if (isConnected()) {
             throw new IllegalStateException("Already connected");
         }
-        InetSocketAddress address = this.address;
-        if (address == null) {
-            address = new InetSocketAddress(hostname, port);
+        if (this.address == null)
+        {
+            LOGGER.warn("Graphite address instance is NULL");
+            this.address = new InetSocketAddress(this.hostname, this.port);
         }
-        if (address.getAddress() == null) {
-            // retry lookup, just in case the DNS changed
-            address = new InetSocketAddress(address.getHostName(),address.getPort());
-
-            if (address.getAddress() == null) {
-                throw new UnknownHostException(address.getHostName());
-            }
+        InetAddress preAdd = this.address.getAddress();
+        if (preAdd == null) {
+            LOGGER.warn("Graphite previous address is NULL");
+        }
+        this.address = new InetSocketAddress(this.address.getHostName(), this.address.getPort());
+        if (this.address.getAddress() == null) {
+            throw new UnknownHostException(this.address.getHostName());
+        }
+        LOGGER.info("Graphite address: " + preAdd + "/" + this.address.getAddress());
+        if (!this.address.getAddress().equals(preAdd)) {
+            LOGGER.warn("Graphite previous address is not equal to current one!");
         }
 
         this.socket = socketFactory.createSocket(address.getAddress(), address.getPort());
